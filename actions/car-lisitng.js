@@ -312,11 +312,46 @@ export async function getCarById(carId) {
     // Get current user if authenticated
     const { userId } = await auth();
     let dbUser = null;
+    let isWishlisted = false;
+    let userTestDrive = null;
 
     if (userId) {
       dbUser = await db.user.findUnique({
         where: { clerkUserId: userId },
       });
+
+      // Check if car is wishlisted by user
+      if (dbUser) {
+        const savedCar = await db.userSavedCar.findUnique({
+          where: {
+            userId_carId: {
+              userId: dbUser.id,
+              carId,
+            },
+          },
+        });
+        isWishlisted = !!savedCar;
+
+        // Check test drive only for authenticated users
+        const existingTestDrive = await db.testDriveBooking.findFirst({
+          where: {
+            carId,
+            userId: dbUser.id,
+            status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+
+        if (existingTestDrive) {
+          userTestDrive = {
+            id: existingTestDrive.id,
+            status: existingTestDrive.status,
+            bookingDate: existingTestDrive.bookingDate.toISOString(),
+          };
+        }
+      }
     }
 
     // Get car details
@@ -328,43 +363,6 @@ export async function getCarById(carId) {
       return {
         success: false,
         error: "Car not found",
-      };
-    }
-
-    // Check if car is wishlisted by user
-    let isWishlisted = false;
-    if (dbUser) {
-      const savedCar = await db.userSavedCar.findUnique({
-        where: {
-          userId_carId: {
-            userId: dbUser.id,
-            carId,
-          },
-        },
-      });
-
-      isWishlisted = !!savedCar;
-    }
-
-    // Check if user has already booked a test drive for this car
-    const existingTestDrive = await db.testDriveBooking.findFirst({
-      where: {
-        carId,
-        userId: dbUser.id,
-        status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    let userTestDrive = null;
-
-    if (existingTestDrive) {
-      userTestDrive = {
-        id: existingTestDrive.id,
-        status: existingTestDrive.status,
-        bookingDate: existingTestDrive.bookingDate.toISOString(),
       };
     }
 
@@ -380,7 +378,7 @@ export async function getCarById(carId) {
       data: {
         ...serializeCarData(car, isWishlisted),
         testDriveInfo: {
-          userTestDrive,
+          userTestDrive, // will be null for unauthenticated users
           dealership: dealership
             ? {
                 ...dealership,
