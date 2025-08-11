@@ -1,31 +1,57 @@
 'use client'
-
-import { Camera,Upload } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
-import { Button } from './ui/button'
-import { useDropzone } from 'react-dropzone'
-import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
-import useFetch from '@/hooks/use-fetch'
-import { processImageSearch } from '@/actions/home'
+import { useState, useEffect } from "react";
+import { Search, Upload, Camera } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { useDropzone } from "react-dropzone";
+import { useRouter } from "next/navigation";
+import { processImageSearch } from "@/actions/home";
+import useFetch from "@/hooks/use-fetch";
 
 const HomeSearch = () => {
-    const [searchTerm, setSearchTerm] =useState("")
-    const [isImageSearchActive, setIsImageSearchActive] = useState(false);
-    const [searchImage, setSearchImage] = useState(null);
+    const router = useRouter();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchImage, setSearchImage] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isImageSearchActive, setIsImageSearchActive] = useState(false);
 
-    const router=useRouter()
+  // Use the useFetch hook for image processing
+  const {
+    loading: isProcessing,
+    fn: processImageFn,
+    data: processResult,
+    error: processError,
+  } = useFetch(processImageSearch);
 
-    const{
-      loading: isProcessing,
-      fn: processImageFn,
-      data: processResult,
-      error: processError,
-    }=useFetch(processImageSearch)
+  // Handle process result and errors with useEffect
+  useEffect(() => {
+    if (processResult?.success) {
+      const params = new URLSearchParams();
 
-const onDrop = (acceptedFiles) => {
+      // Add extracted params to the search
+      if (processResult.data.make) params.set("make", processResult.data.make);
+      if (processResult.data.bodyType)
+        params.set("bodyType", processResult.data.bodyType);
+      if (processResult.data.color)
+        params.set("color", processResult.data.color);
+
+      // Redirect to search results
+      router.push(`/cars?${params.toString()}`);
+    }
+  }, [processResult, router]);
+
+  useEffect(() => {
+    if (processError) {
+      toast.error(
+        "Failed to analyze image: " + (processError.message || "Unknown error")
+      );
+    }
+  }, [processError]);
+
+  // Handle image upload with react-dropzone
+  const onDrop = (acceptedFiles) => {
     const file = acceptedFiles[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
@@ -47,7 +73,9 @@ const onDrop = (acceptedFiles) => {
         toast.error("Failed to read the image");
       };
       reader.readAsDataURL(file);
-    }}
+    }
+  };
+
   const { getRootProps, getInputProps, isDragActive, isDragReject } =
     useDropzone({
       onDrop,
@@ -57,9 +85,8 @@ const onDrop = (acceptedFiles) => {
       maxFiles: 1,
     });
 
-
-
-    const handleTextSearch = (e) => {
+  // Handle text search submissions
+  const handleTextSearch = (e) => {
     e.preventDefault();
     if (!searchTerm.trim()) {
       toast.error("Please enter a search term");
@@ -69,7 +96,8 @@ const onDrop = (acceptedFiles) => {
     router.push(`/cars?search=${encodeURIComponent(searchTerm)}`);
   };
 
-    const handleImageSearch = async (e) => {
+  // Handle image search submissions
+  const handleImageSearch = async (e) => {
     e.preventDefault();
     if (!searchImage) {
       toast.error("Please upload an image first");
@@ -81,45 +109,33 @@ const onDrop = (acceptedFiles) => {
   };
 
 
-  useEffect(()=>{
-    if(processResult?.success){
-      const params = new URLSearchParams();
-
-      // Add extracted params to the search
-      if (processResult.data.make) params.set("make", processResult.data.make);
-      if (processResult.data.bodyType)
-        params.set("bodyType", processResult.data.bodyType);
-      if (processResult.data.color)
-        params.set("color", processResult.data.color);
-
-      // Redirect to search results
-      router.push(`/cars?${params.toString()}`);
-    }
-  },[processResult,router])
-  useEffect(()=>{
-    if(processError){
-      toast.error("Failed to analyze imaeg: "+ (processError.message || "Unknown Error"))
-    }
-  },[processError])
   return (
     <div>
       <form onSubmit={handleTextSearch}>
         <div className="relative flex items-center">
-            <input type="text" placeholder='Enter make, model, or use our AI Image Search...'
+          <Search className="absolute left-3 w-5 h-5" />
+          <Input
+            type="text"
+            placeholder="Enter make, model, or use our AI Image Search..."
             value={searchTerm}
-            onChange={(e)=> setSearchTerm(e.target.value)}
-            className='pl-10 pr-12 py-4 w-full rounded-full border-gray-300 bg-white/95 backdrop-blur-sm' />
-            <div className='absolute right-[100px]'>
-                <Camera
-                size={35}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-12 py-6 w-full rounded-full border-gray-300 bg-white/95 backdrop-blur-sm"
+          />
+
+          {/* Image Search Button */}
+          <div className="absolute right-[100px]">
+            <Camera
+              size={35}
               onClick={() => setIsImageSearchActive(!isImageSearchActive)}
               className="cursor-pointer rounded-xl p-1.5"
               style={{
                 background: isImageSearchActive ? "black" : "",
                 color: isImageSearchActive ? "white" : "",
-              }}/>
-            </div>
-            <Button type="submit" className="absolute right-2 rounded-full">
+              }}
+            />
+          </div>
+
+          <Button type="submit" className="absolute right-2 rounded-full">
             Search
           </Button>
         </div>
@@ -137,7 +153,8 @@ const onDrop = (acceptedFiles) => {
                     className="h-40 object-contain mb-4"
                   />
                   <Button
-                    v
+                    variant="outline"
+                    className={'bg-gray-50'}
                     onClick={() => {
                       setSearchImage(null);
                       setImagePreview("");
@@ -181,7 +198,7 @@ const onDrop = (acceptedFiles) => {
                   : "Search with this Image"}
               </Button>
             )}
-            </form>
+          </form>
         </div>
       )}
     </div>
