@@ -40,7 +40,7 @@ export async function processImageSearch(file) {
       if (decision.reason.isRateLimit()) {
         const { remaining, reset } = decision.reason;
         console.error({
-          code: "RTE_LIMIT_EXCEEDED",
+          code: "RATE_LIMIT_EXCEEDED",
           details: {
             remaining,
             resetInSeconds: reset,
@@ -57,7 +57,7 @@ export async function processImageSearch(file) {
       throw new Error("Gemini API key is not configure properly");
     }
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" });
 
     const base64Image = await fileToBase64(file);
 
